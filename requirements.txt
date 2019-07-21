@@ -1,0 +1,4 @@
+h5py
+fire
+tqdm
+py32win

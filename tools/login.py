@@ -1,5 +1,18 @@
 import win32com.client
-from tools.misc import get_logger
+from misc import get_logger, Option
+
+class Status:
+    def __init__(self, conf_path, verbose=False):
+        self.logger = get_logger()
+        self.verbose = verbose
+        self.status = CpCybos.get_instance()
+        self.opt = Option(conf_path)
+
+    def assert_disconnect(self):
+        assert self.status.getIsConnect()
+
+    def get_dispatch(self):
+        raise NotImplementedError
 
 class CpCybos:
 
