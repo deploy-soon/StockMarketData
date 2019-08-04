@@ -2,11 +2,11 @@ import win32com.client
 from misc import get_logger, Option
 
 class Status:
-    def __init__(self, conf_path, verbose=False):
+    def __init__(self, conf, verbose=False):
         self.logger = get_logger()
         self.verbose = verbose
         self.status = CpCybos.get_instance()
-        self.opt = Option(conf_path)
+        self.opt = Option(conf)
 
     def assert_disconnect(self):
         assert self.status.getIsConnect()
