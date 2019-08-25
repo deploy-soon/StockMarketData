@@ -39,7 +39,43 @@ class NinetoTen(Status):
         if self.verbose:
             self.logger.info("code : {}, message : {}".format(code, message))
 
+    def get_minute_data(self, stockcode, pivots):
+        if not isinstance(pivots, list) or not pivots:
+            return {}
+        self.stock_chart.SetInputValue(0, stockcode)
+        self.stock_chart.SetInputValue(1, ord('2'))
+        self.stock_chart.SetInputValue(4, 100000)
+        self.stock_chart.SetInputValue(5, [0, 1, 2, 3, 4, 5, 8])
+        self.stock_chart.SetInputValue(6, ord("m"))
+        self.stock_chart.SetInputValue(9, ord('1'))
+        self.stock_chart.BlockRequest()
+
+        candle = {}
+        length = self.stock_chart.GetHeaderValue(3)
+        while self.stock_chart.Continue:
+            for i in range(length):
+                if self.stock_chart.GetDataValue(0, i) not in pivots:
+                    continue
+                minute = self.stock_chart.GetDataValue(1, i)
+                if 901 <= minute and minute < 1100:
+                    candle.setdefault("dates", []).append(self.stock_chart.GetDataValue(0, i))
+                    candle.setdefault("minutes", []).append(self.stock_chart.GetDataValue(1, i))
+                    candle.setdefault("opens", []).append(self.stock_chart.GetDataValue(2, i))
+                    candle.setdefault("highs", []).append(self.stock_chart.GetDataValue(3, i))
+                    candle.setdefault("lows", []).append(self.stock_chart.GetDataValue(4, i))
+                    candle.setdefault("closes", []).append(self.stock_chart.GetDataValue(5, i))
+                    candle.setdefault("volumes", []).append(self.stock_chart.GetDataValue(6, i))
+            if pivots[0] > self.stock_chart.GetDataValue(0, i):
+                break
+            if self.status.getLimitRemainCount(1) < 2:
+                time.sleep(15.0)
+            self.stock_chart.BlockRequest()
+            self.log_request()
+            length = self.stock_chart.GetHeaderValue(3)
+        return candle
+
     def get_tick_data(self, stockcode, pivots):
+        """deprecated"""
         if not isinstance(pivots, list) or not pivots:
             return [], [], [], []
         self.stock_chart.SetInputValue(0, stockcode)
@@ -105,23 +141,27 @@ class NinetoTen(Status):
         for date in dateset:
             price = [(stockcode, series[date]) for stockcode, series in stockdata.items() if date in series]
             price = sorted(price, key=lambda x:x[1], reverse=True)
-            high_volume[date] = [stockcode for stockcode, p in price[:20]]
+            high_volume[date] = [stockcode for stockcode, p in price[:self.opt.top_volume]]
         return high_volume
 
     def save(self, stock_map):
         stockcodes = []
-        self.logger.info("Extract tick data : {} stocks".format(len(stock_map.keys())))
+        self.logger.info("Extract minute data : {} stocks".format(len(stock_map.keys())))
         with h5py.File(pjoin(self.opt.export_to, "ninetoten.h5"), "w") as fout:
             for key, value in tqdm.tqdm(stock_map.items()):
+                candle = self.get_minute_data(key, value)
                 dates, minutes, prices, volumes = self.get_tick_data(key, value)
                 if len(dates) == 0:
                     continue
                 stockcodes.append(key)
                 stockgroup = fout.create_group(key)
-                stockgroup.create_dataset("dates", data=dates)
-                stockgroup.create_dataset("minutes", data=minutes)
-                stockgroup.create_dataset("prices", data=prices)
-                stockgroup.create_dataset("volumes", data=volumes)
+                stockgroup.create_dataset("dates", data=candle["dates"])
+                stockgroup.create_dataset("minutes", data=candle["minutes"])
+                stockgroup.create_dataset("opens", data=candle["opens"])
+                stockgroup.create_dataset("highs", data=candle["highs"])
+                stockgroup.create_dataset("lows", data=candle["lows"])
+                stockgroup.create_dataset("closes", data=candle["closes"])
+                stockgroup.create_dataset("volumes", data=candle["volumes"])
         with open(pjoin(self.opt.export_to, "ninetoten.keys"), "w") as fout:
             fout.write("\n".join(stockcodes))
 
