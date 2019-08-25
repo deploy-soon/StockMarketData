@@ -150,8 +150,7 @@ class NinetoTen(Status):
         with h5py.File(pjoin(self.opt.export_to, "ninetoten.h5"), "w") as fout:
             for key, value in tqdm.tqdm(stock_map.items()):
                 candle = self.get_minute_data(key, value)
-                dates, minutes, prices, volumes = self.get_tick_data(key, value)
-                if len(dates) == 0:
+                if not candle:
                     continue
                 stockcodes.append(key)
                 stockgroup = fout.create_group(key)
