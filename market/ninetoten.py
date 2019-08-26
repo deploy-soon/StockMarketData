@@ -65,7 +65,9 @@ class NinetoTen(Status):
                     candle.setdefault("lows", []).append(self.stock_chart.GetDataValue(4, i))
                     candle.setdefault("closes", []).append(self.stock_chart.GetDataValue(5, i))
                     candle.setdefault("volumes", []).append(self.stock_chart.GetDataValue(6, i))
-            if pivots[0] > self.stock_chart.GetDataValue(0, i):
+            if pivots[0] > self.stock_chart.GetDataValue(0, 0):
+                break
+            if self.opt.startdate > self.stock_chart.GetDataValue(0, 0):
                 break
             if self.status.getLimitRemainCount(1) < 2:
                 time.sleep(15.0)
@@ -110,7 +112,7 @@ class NinetoTen(Status):
         self.stock_chart.SetInputValue(0, stockcode)
         self.stock_chart.SetInputValue(1, ord('2'))
         self.stock_chart.SetInputValue(4, 100000)
-        self.stock_chart.SetInputValue(5, [0, 1, 9])
+        self.stock_chart.SetInputValue(5, [0, 1, 8])
         self.stock_chart.SetInputValue(6, ord("m"))
         self.stock_chart.SetInputValue(9, ord('1'))
         self.stock_chart.BlockRequest()
@@ -118,10 +120,12 @@ class NinetoTen(Status):
         dates, volumes = [], []
         while self.stock_chart.Continue:
             for i in range(length):
+                if self.opt.startdate > self.stock_chart.GetDataValue(0, i):
+                    break
                 if self.stock_chart.GetDataValue(1, i) == 901:
                     dates.append(self.stock_chart.GetDataValue(0, i))
                     volumes.append(self.stock_chart.GetDataValue(2, i))
-            if self.opt.startdate > self.stock_chart.GetDataValue(0, i):
+            if self.opt.startdate > self.stock_chart.GetDataValue(0, 0):
                 break
             if self.status.getLimitRemainCount(1) < 2:
                 time.sleep(15.0)
@@ -163,12 +167,6 @@ class NinetoTen(Status):
                 stockgroup.create_dataset("volumes", data=candle["volumes"])
         with open(pjoin(self.opt.export_to, "ninetoten.keys"), "w") as fout:
             fout.write("\n".join(stockcodes))
-
-    def test(self):
-        with h5py.File(pjoin(self.opt.export_to, "ninetoten.h5"), "r") as fin:
-            for k in fin.keys():
-                print(k)
-                print(fin[k]["dates"])
 
     def run(self):
         self.get_dispatch()
