@@ -57,7 +57,7 @@ class NinetoTen(Status):
                 if self.stock_chart.GetDataValue(0, i) not in pivots:
                     continue
                 minute = self.stock_chart.GetDataValue(1, i)
-                if 901 <= minute and minute < 1100:
+                if 901 <= minute and minute < 1030:
                     candle.setdefault("dates", []).append(self.stock_chart.GetDataValue(0, i))
                     candle.setdefault("minutes", []).append(self.stock_chart.GetDataValue(1, i))
                     candle.setdefault("opens", []).append(self.stock_chart.GetDataValue(2, i))
@@ -167,6 +167,16 @@ class NinetoTen(Status):
                 stockgroup.create_dataset("volumes", data=candle["volumes"])
         with open(pjoin(self.opt.export_to, "ninetoten.keys"), "w") as fout:
             fout.write("\n".join(stockcodes))
+
+    def _test(self):
+        with h5py.File(pjoin(self.opt.export_to, "ninetoten.h5"), "r") as fin:
+            for k in fin.keys():
+                print(k)
+                print(fin[k]["dates"])
+
+    def test(self):
+        self.get_dispatch()
+        print(self.get_volume("A000660"))
 
     def run(self):
         self.get_dispatch()
