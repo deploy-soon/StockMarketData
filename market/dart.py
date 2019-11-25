@@ -78,7 +78,7 @@ class DART:
                 pivot_date = pivot_date - timedelta(days=1)
                 continue
 
-            self.logger.debug("START GET {}".format(pivot_date.strftime("%Y.%m.%d")))
+            self.logger.info("START GET {}".format(pivot_date.strftime("%Y.%m.%d")))
             params = {
                 "selectDate": pivot_date.strftime("%Y%m%d"),
                 "maxResults": 500,
