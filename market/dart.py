@@ -1,4 +1,5 @@
 import os
+import csv
 import sys
 from os.path import join as pjoin
 import fire
@@ -10,7 +11,6 @@ import requests
 
 sys.path.append("../tools")
 from misc import get_logger
-from login import Status
 
 
 SATURDAY = 6
@@ -18,11 +18,11 @@ SUNDAY = 7
 
 class DART:
 
-    def __init__(self):
+    def __init__(self, days):
         self.logger = get_logger()
         self.root = "http://dart.fss.or.kr"
         self.from_date = datetime.now()
-        self.to_date = datetime.now() - timedelta(days=10)
+        self.to_date = datetime.now() - timedelta(days=days)
 
     def _check_page_valid(self, trs):
         try:
@@ -55,7 +55,7 @@ class DART:
             month = int(report_date[1])
             day = int(report_date[2])
             return {
-                "title": report_title,
+                "title": report_title.replace("\t", "").replace("\r\n", ""),
                 "href": report_href,
                 "company_name": company_name,
                 "company_id": company_id,
@@ -96,12 +96,27 @@ class DART:
                 for tr in trs[1:]:
                     report_list.append(self._extract_tuple(tr))
                 params["currentPage"] = params["currentPage"] + 1
-                time.sleep(2)
+                time.sleep(3)
             pivot_date = pivot_date - timedelta(days=1)
 
-        self.logger.info(len(report_list))
+        self.logger.info("report num: {}".format(len(report_list)))
+        return report_list
 
+    def save(self, results):
+        with open(pjoin('res', 'reports.csv'), 'w', encoding='utf-8', newline='') as fout:
+            wr = csv.writer(fout, delimiter='\t')
+            wr.writerow(["title", "href", "company", "company_id",
+                         "year", "month", "day", "hout", "minute"])
+            for result in results:
+                wr.writerow([result["title"], result["href"],
+                             result["company_name"], result["company_id"],
+                             result["datetime"].year, result["datetime"].month,
+                             result["datetime"].day, result["datetime"].hour,
+                             result["datetime"].minute])
+
+    def run(self):
+        result = self.get_main_page()
+        self.save(result)
 
 if __name__ == "__main__":
-    d = DART()
-    d.get_main_page()
+    fire.Fire(DART)
