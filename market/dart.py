@@ -106,7 +106,7 @@ class DART:
         with open(pjoin('res', 'reports.csv'), 'w', encoding='utf-8', newline='') as fout:
             wr = csv.writer(fout, delimiter='\t')
             wr.writerow(["title", "href", "company", "company_id",
-                         "year", "month", "day", "hout", "minute"])
+                         "year", "month", "day", "hour", "minute"])
             for result in results:
                 wr.writerow([result["title"], result["href"],
                              result["company_name"], result["company_id"],

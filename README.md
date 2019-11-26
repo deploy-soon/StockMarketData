@@ -9,8 +9,13 @@ Drive stock market data with CybosPlus
 
 ## How to use
 
-.. code:: bash
+```
+$ pip install -r requirements.txt
+$ cd market
+$ python timeseries.py --conf_path config/timeseries.json
+    
+# get dart data
+$ python dart.py run --days=:days run
+$ python dart_report.py Danil run
 
-    pip install -r requirements.txt
-    cd market
-    python timeseries.py --conf_path config/timeseries.json
+```
