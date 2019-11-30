@@ -84,7 +84,9 @@ class Report:
         return self.get_document(params)
 
     def save(self, results):
-
+        if not isinstance(results, list) or len(results) == 0:
+            self.logger.info("no results")
+            return
         with open(self.res_file, 'w', newline='') as fout:
             fieldnames = results[0].keys()
             writer = csv.DictWriter(fout,
@@ -99,7 +101,7 @@ class Report:
             if not self.check_report_valid(row.get("title")):
                 continue
             data = self.get_report(row.get("href"))
-            print(data)
+            #print(data)
             row.update(data)
             results.append(row)
             time.sleep(2)
@@ -192,8 +194,45 @@ class Usang(Report):
         return data
 
 
+class TreasuryStock(Report):
+
+    def __init__(self):
+        Report.__init__(self)
+        self.res_file = pjoin(self.res_path, "treasury.csv")
+
+    def check_report_valid(self, title):
+        if not title:
+            return False
+        return "자기주식취득결정" in title
+
+    def parse_document(self, content):
+        soup = BeautifulSoup(content, "html.parser")
+        trs = soup.find_all('tr')
+        data = {
+            "buy_stock": 0,
+            "buy_amount": 0,
+        }
+        for tr in trs:
+            tds = tr.find_all("td")
+            key, value = None, None
+            for td in tds:
+                row = td.text.strip() or ""
+                if "취득예정주식" in row:
+                    key = "buy_stock"
+                elif "취득예정금액" in row:
+                    key = "buy_amount"
+                elif row.replace(",", "").isdigit():
+                    value = row.replace(",", "")
+                    if value == "0":
+                        value = None
+            if key is not None and value is not None:
+                data[key] = value
+        return data
+
+
 if __name__ == "__main__":
     fire.Fire({
         "Danil": Danil,
         "Usang": Usang,
+        "Treasury": TreasuryStock,
     })
