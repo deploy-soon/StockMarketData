@@ -230,9 +230,94 @@ class TreasuryStock(Report):
         return data
 
 
+class CB(Report):
+    r"""
+    Convertible Bond Report
+
+    params
+    ------
+    href: link of cb report
+
+    returns
+    -------
+    cb_amount: 사채의 권면총액(원)
+    facility_fund: 자금조달의 목적(시설자금)
+    operation_fund: 자금조달의 목적(운영자금)
+    acquisition_fund: 자금조달의 목적(타법인 증권 취득자금)
+    guitar_fund: 자금조달의 목적(기타자금)
+    coupon_rate: 표면이자율(%)
+    maturity_rate: 만기이자율(%)
+    maturity_date: 사채만기일
+    amortization_method: 사채발행방법
+    stock_ratio: 전환에 따라 발행할 주식 - 주식총수대비(%)
+    """
+
+    def __init__(self):
+        Report.__init__(self)
+        self.res_file = pjoin(self.res_path, "cb.csv")
+
+    def check_report_valid(self, title):
+        if not title:
+            return False
+        return "전환사채권발행결정" in title
+
+    def _list_contain(self, str_list, query):
+        for token in str_list:
+            if query in token:
+                return True
+        return False
+
+    def _get_numeric_value(self, str_list):
+        for token in str_list:
+            if token.replace(",", "").isdigit():
+                return token.replace(",", "")
+        return ""
+
+    def parse_document(self, content):
+        soup = BeautifulSoup(content, "html.parser")
+        trs = soup.find_all('tr')
+        data = {
+            "cb_amount": 0,
+            "facility_fund": 0,
+            "operation_fund": 0,
+            "acquisition_fund": 0,
+            "guitar_fund": 0,
+            "coupon_rate": 0.0,
+            "maturity_rate": 0.0,
+            "maturity_date": "",
+            "amortization_method": "",
+            "stock_ratio": 0.0,
+        }
+        for tr in trs:
+            tds = tr.find_all("td")
+            tds_text = [td.text.strip() for td in tds if td.text.strip()]
+            if self._list_contain(tds_text, "사채의 권면총액"):
+                data["cb_amount"] = self._get_numeric_value(tds_text)
+            elif self._list_contain(tds_text, "시설자금"):
+                data["facility_fund"] = self._get_numeric_value(tds_text)
+            elif self._list_contain(tds_text, "운영자금"):
+                data["operation_fund"] = self._get_numeric_value(tds_text)
+            elif self._list_contain(tds_text, "취득자금"):
+                data["acquisition_fund"] = self._get_numeric_value(tds_text)
+            elif self._list_contain(tds_text, "기타자금"):
+                data["guitar_fund"] = self._get_numeric_value(tds_text)
+            elif self._list_contain(tds_text, "표면이자율"):
+                data["coupon_rate"] = tds_text[-1]
+            elif self._list_contain(tds_text, "만기이자율"):
+                data["maturity_rate"] = tds_text[-1]
+            elif self._list_contain(tds_text, "사채만기일"):
+                data["maturity_date"] = tds_text[-1]
+            elif self._list_contain(tds_text, "사채발행방법"):
+                data["amorization_method"] = tds_text[-1]
+            elif self._list_contain(tds_text, "주식총수대비"):
+                data["stock_ratio"] = tds_text[-1]
+        return data
+
+
 if __name__ == "__main__":
     fire.Fire({
         "Danil": Danil,
         "Usang": Usang,
         "Treasury": TreasuryStock,
+        "CB": CB,
     })
