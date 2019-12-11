@@ -93,12 +93,19 @@ class DartMinute(Status):
         if self.verbose:
             self.logger.info("code : {}, message : {}".format(code, message))
 
-    def add_report_info(self, report_book):
+    def add_report_info(self, report_book, dart_reports):
+        count = 0
         for stock_code, reports in tqdm.tqdm(report_book.items()):
             self.get_data(stock_code, reports)
+            count += 1
+            if count % 10 == 9:
+                self.save(dart_reports)
+
+    def _get_int_datetime(self, year, month, day):
+        return int(int(year)*10000 + int(month)*100 + int(day))
 
     def get_data(self, stock_code, reports):
-        pivots = [int(r["year"] + r["month"] + r["day"]) for r in reports]
+        pivots = [self._get_int_datetime(r["year"], r["month"], r["day"]) for r in reports]
         min_date = min(pivots)
 
         self.stock_chart.SetInputValue(0, "A{}".format(stock_code))
@@ -110,11 +117,12 @@ class DartMinute(Status):
         self.stock_chart.BlockRequest()
         length = self.stock_chart.GetHeaderValue(3)
         data = {}
+        temp = []
         while self.stock_chart.Continue:
             for i in range(length):
-                if min_date > self.stock_chart.GetDataValue(0, i):
-                    break
-                if self.stock_chart.GetDataValue(0, i) not in pivots:
+                if self.stock_chart.GetDataValue(0, i) not in temp:
+                    temp.append(self.stock_chart.GetDataValue(0, i))
+                if int(self.stock_chart.GetDataValue(0, i)) not in pivots:
                     continue
                 _date = self.stock_chart.GetDataValue(0, i)
                 data.setdefault(_date, []).append({
@@ -126,12 +134,13 @@ class DartMinute(Status):
                     "close": self.stock_chart.GetDataValue(5, i),
                     "volume": self.stock_chart.GetDataValue(6, i),
                 })
+                if min_date > self.stock_chart.GetDataValue(0, i):
+                    break
             if self.status.getLimitRemainCount(1) < 2:
                 time.sleep(15.0)
             self.stock_chart.BlockRequest()
             self.log_request()
             length = self.stock_chart.GetHeaderValue(3)
-
         self.stock_chart.SetInputValue(0, "A{}".format(stock_code))
         self.stock_chart.SetInputValue(1, ord('2'))
         self.stock_chart.SetInputValue(4, 100000)
@@ -165,8 +174,8 @@ class DartMinute(Status):
 
     def _update_report(self, reports, data, day_data):
         for report in reports:
-            _data = data.get(int(report["year"] + report["month"] + report["day"]), [])
-            _day_data = day_data.get(int(report["year"] + report["month"] + report["day"]), [])
+            _data = data.get(self._get_int_datetime(report["year"], report["month"], report["day"]), [])
+            _day_data = day_data.get(self._get_int_datetime(report["year"], report["month"], report["day"]), {})
             report_datetime = datetime.datetime(year=int(report["year"]), month=int(report["month"]),
                                                 day=int(report["day"]), hour=int(report["hout"]),
                                                 minute=int(report["minute"]))
@@ -174,10 +183,12 @@ class DartMinute(Status):
                 d_datetime = datetime.datetime(year=int(d["date"] / 10000), month=int(d["date"] / 100) % 100,
                                                day=d["date"] % 100, hour=int(d["minute"] / 100),
                                                minute=d["minute"] % 100)
+
                 if (report_datetime <= d_datetime) and (d_datetime - report_datetime <= datetime.timedelta(minutes=7)):
                     new_data = d.copy()
                     new_data.update(_day_data)
                     report.setdefault("prices", []).append(new_data)
+
 
     def _report_intime(self, report):
         if int(report["hout"]) >= 16:
@@ -209,15 +220,14 @@ class DartMinute(Status):
                 if self._report_intime(report):
                     continue
                 stock_code = self.stockCodeCache[report["company_id"]]
-                self.stockCodeCache.save()
                 if not stock_code:
                     continue
                 report_book.setdefault(stock_code, []).append(report)
                 count += 1
             self.logger.info("{} get {} reports".format(report_type, count))
 
-        self.add_report_info(report_book)
-        self.save(dart_reports)
+        self.add_report_info(report_book, dart_reports)
+        # self.save(dart_reports)
         self.stockCodeCache.save()
 
 
