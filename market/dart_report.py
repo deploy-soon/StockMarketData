@@ -29,6 +29,19 @@ class Report:
             for row in reader:
                 yield row
 
+    def check_report_datetime(self, row):
+        if row.get("hout") and int(row.get("hout")) >= 16:
+            return False
+        if row.get("hout") and int(row.get("hout")) <= 8:
+            return False
+        today = datetime.now()
+        report_datetime = datetime(year=int(row["year"]),
+                                   month=int(row["month"]),
+                                   day=int(row["day"]))
+        if today - report_datetime > timedelta(days=365 * 2):
+            return False
+        return True
+
     def check_report_valid(self, title):
         raise NotImplemented
 
@@ -87,6 +100,7 @@ class Report:
         if not isinstance(results, list) or len(results) == 0:
             self.logger.info("no results")
             return
+        print("SAVE TO {}".format(self.res_file))
         with open(self.res_file, 'w', newline='') as fout:
             fieldnames = results[0].keys()
             writer = csv.DictWriter(fout,
@@ -97,11 +111,13 @@ class Report:
 
     def run(self):
         results = []
-        for row in self.load_reports():
+        print("START CRAWLING TO {}".format(self.res_file))
+        for row in tqdm.tqdm(self.load_reports()):
             if not self.check_report_valid(row.get("title")):
                 continue
+            if not self.check_report_datetime(row):
+                continue
             data = self.get_report(row.get("href"))
-            #print(data)
             row.update(data)
             results.append(row)
             time.sleep(2)
@@ -126,6 +142,7 @@ class Danil(Report):
             "total_payment": 0,
             "recent_profit": 0,
             "profit_ratio": 0.0,
+            "big_deal": "",
         }
         for tr in trs:
             tds = tr.find_all("td")
@@ -140,6 +157,10 @@ class Danil(Report):
                     key = "recent_profit"
                 elif "매출액" in row and "대비" in row:
                     key = "profit_ratio"
+                elif "대규모법인" in row:
+                    key = "big_deal"
+                elif key == "big_deal":
+                    value = row
                 elif row.replace(",", "").isdigit():
                     value = row.replace(",", "")
                     if value == "0":
@@ -302,14 +323,24 @@ class CB(Report):
             elif self._list_contain(tds_text, "기타자금"):
                 data["guitar_fund"] = self._get_numeric_value(tds_text)
             elif self._list_contain(tds_text, "표면이자율"):
+                if len(tds_text[-1]) > 20:
+                    continue
                 data["coupon_rate"] = tds_text[-1]
             elif self._list_contain(tds_text, "만기이자율"):
+                if len(tds_text[-1]) > 20:
+                    continue
                 data["maturity_rate"] = tds_text[-1]
             elif self._list_contain(tds_text, "사채만기일"):
+                if len(tds_text[-1]) > 20:
+                    continue
                 data["maturity_date"] = tds_text[-1]
             elif self._list_contain(tds_text, "사채발행방법"):
+                if len(tds_text[-1]) > 20:
+                    continue
                 data["amorization_method"] = tds_text[-1]
             elif self._list_contain(tds_text, "주식총수대비"):
+                if len(tds_text[-1]) > 20:
+                    continue
                 data["stock_ratio"] = tds_text[-1]
         return data
 
