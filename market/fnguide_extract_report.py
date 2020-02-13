@@ -116,6 +116,9 @@ class Report:
         df = pd.read_excel(pjoin(self.data_path, report_file), header = 1)
         columns = [c for c in df.columns if not bool(regex.search(c))]
         df = df[columns]
+        new_columns = [column.replace("\n", "").replace(",", ".") for column in columns]
+        df.rename(columns = {c: new_c for c, new_c in zip(columns, new_columns)},
+                  inplace=True)
         df = df.drop(0, 0)
         df["period"] = report_file
         return df
@@ -131,12 +134,14 @@ class Report:
         self.logger.info("Toal Dataframe shape: {}".format(df.shape))
         return df
         
-    def save(self):
-        pass
+    def save(self, df):
+        self.logger.info("save file to {}".format(self.res_file))
+        df.to_csv(self.res_file)
 
     def run(self):
-        pass
+        df = self.load()
+        self.save(df)
 
 if __name__ == "__main__":
     report = Report()
-    report.load()
+    report.run()
