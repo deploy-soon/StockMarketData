@@ -75,9 +75,11 @@ class DartMinute(Status):
         dart_reports = dict()
         file_list = os.listdir(self.model_path)
         for report in file_list:
+            parse_report = report if "." not in report else report.split(".")[0]
+            self.logger.info("EXTRACT {}".format(parse_report))
             with open(pjoin(self.model_path, report), "r", newline='', encoding='utf-8') as fin:
                 reader = csv.DictReader(fin, delimiter='\t')
-                dart_reports[report] = list(reader)
+                dart_reports[parse_report] = list(reader)
         return dart_reports
 
     def get_dispatch(self):
@@ -238,14 +240,15 @@ def test():
     for key, value in dart_reports.items():
         print(key)
         count = 0
+        print(key, len(value))
         for v in value:
             if "prices" not in v:
                 continue
             pprint.pprint(v)
             count = count + 1
-            if count > 5:
+            if count > 2:
                 break
 
 if __name__ == "__main__":
-    fire.Fire(DartMinute)
-    # test()
+    # fire.Fire(DartMinute)
+    test()

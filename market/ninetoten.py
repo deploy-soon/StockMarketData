@@ -40,6 +40,12 @@ class NinetoTen(Status):
             self.logger.info("code : {}, message : {}".format(code, message))
 
     def get_minute_data(self, stockcode, pivots):
+        """
+        get minute data of target stock and datetimes
+        :param stockcode: kospi, kosdaq stockcode which startswith "A"
+        :param pivots: list of target datetimes
+        :return: dict of dates, minutes, opens, highs, lows, closes, volumes
+        """
         if not isinstance(pivots, list) or not pivots:
             return {}
         self.stock_chart.SetInputValue(0, stockcode)
@@ -112,7 +118,7 @@ class NinetoTen(Status):
         self.stock_chart.SetInputValue(0, stockcode)
         self.stock_chart.SetInputValue(1, ord('2'))
         self.stock_chart.SetInputValue(4, 100000)
-        self.stock_chart.SetInputValue(5, [0, 1, 8])
+        self.stock_chart.SetInputValue(5, [0, 1, 8, 13])
         self.stock_chart.SetInputValue(6, ord("m"))
         self.stock_chart.SetInputValue(9, ord('1'))
         self.stock_chart.BlockRequest()
