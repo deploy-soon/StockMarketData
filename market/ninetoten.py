@@ -123,13 +123,20 @@ class NinetoTen(Status):
 
         self.stock_chart.SetInputValue(0, stockcode)
         self.stock_chart.SetInputValue(1, ord('2'))
-        self.stock_chart.SetInputValue(4, 100000)
+        self.stock_chart.SetInputValue(4, 1000)
         self.stock_chart.SetInputValue(5, [0, 8])
         self.stock_chart.SetInputValue(6, ord(time_mode))
         self.stock_chart.SetInputValue(9, ord('1'))
         self.stock_chart.BlockRequest()
         length = self.stock_chart.GetHeaderValue(3)
         dates, volumes = [], []
+        if length > 0:
+            for i in range(length):
+                if self.opt.startdate > self.stock_chart.GetDataValue(0, i):
+                    break
+                dates.append(self.stock_chart.GetDataValue(0, i))
+                volumes.append(self.stock_chart.GetDataValue(1, i))
+
         while self.stock_chart.Continue:
             for i in range(length):
                 if self.opt.startdate > self.stock_chart.GetDataValue(0, i):
@@ -170,6 +177,7 @@ class NinetoTen(Status):
             price = [(stockcode, series[date]) for stockcode, series in stockdata.items() if date in series]
             price = sorted(price, key=lambda x: x[1], reverse=True)
             high_volume[date] = [stockcode for stockcode, p in price[:self.opt.top_volume]]
+
         return high_volume
 
     def save(self, stock_map):
@@ -202,6 +210,15 @@ class NinetoTen(Status):
         self.get_dispatch()
         self.get_stockcode()
         # print(self.get_volume("A000660"))
+
+    def test_high_volume(self):
+        self.get_dispatch()
+        self.get_high_volume()
+
+    def test_volume(self):
+        self.get_dispatch()
+        dates, volumes = self.get_volume("A093230")
+        print(dates[0], volumes[0])
 
     def run(self):
         self.get_dispatch()
