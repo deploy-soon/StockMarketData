@@ -1,0 +1,14 @@
+{
+  "todate" : 20180303,
+  "format" : {
+    "0" : "date",
+    "1" : "time",
+    "2" : "open",
+    "3" : "high",
+    "4" : "low",
+    "5" : "close",
+    "8" : "volume"
+  },
+  "datatype" : "m",
+  "export_to" : "./minute_to"
+}
