@@ -67,7 +67,7 @@ class DartMinute(Status):
 
     def __init__(self, conf="./config/dart_minute.json", **kwargs):
         Status.__init__(self, conf=conf, **kwargs)
-        self.model_path = "./model"
+        self.model_path = "./dart_report"
         self.stockCodeCache = StockCodeCache()
         self.logger = get_logger()
 
@@ -95,13 +95,9 @@ class DartMinute(Status):
         if self.verbose:
             self.logger.info("code : {}, message : {}".format(code, message))
 
-    def add_report_info(self, report_book, dart_reports):
-        count = 0
+    def add_report_info(self, report_book):
         for stock_code, reports in tqdm.tqdm(report_book.items()):
             self.get_data(stock_code, reports)
-            count += 1
-            if count % 10 == 9:
-                self.save(dart_reports)
 
     def _get_int_datetime(self, year, month, day):
         return int(int(year)*10000 + int(month)*100 + int(day))
@@ -118,16 +114,13 @@ class DartMinute(Status):
         self.stock_chart.SetInputValue(9, ord('1'))
         self.stock_chart.BlockRequest()
         length = self.stock_chart.GetHeaderValue(3)
-        data = {}
-        temp = []
+        minute_data = {}
         while self.stock_chart.Continue:
             for i in range(length):
-                if self.stock_chart.GetDataValue(0, i) not in temp:
-                    temp.append(self.stock_chart.GetDataValue(0, i))
                 if int(self.stock_chart.GetDataValue(0, i)) not in pivots:
                     continue
                 _date = self.stock_chart.GetDataValue(0, i)
-                data.setdefault(_date, []).append({
+                minute_data.setdefault(_date, []).append({
                     "date": self.stock_chart.GetDataValue(0, i),
                     "minute": self.stock_chart.GetDataValue(1, i),
                     "open": self.stock_chart.GetDataValue(2, i),
@@ -146,7 +139,7 @@ class DartMinute(Status):
         self.stock_chart.SetInputValue(0, "A{}".format(stock_code))
         self.stock_chart.SetInputValue(1, ord('2'))
         self.stock_chart.SetInputValue(4, 100000)
-        self.stock_chart.SetInputValue(5, [0, 12, 13, 17, 25, 26])
+        self.stock_chart.SetInputValue(5, [0, 2, 12, 13, 17, 25, 26])
         self.stock_chart.SetInputValue(6, ord("D"))
         self.stock_chart.SetInputValue(9, ord('1'))
         self.stock_chart.BlockRequest()
@@ -156,15 +149,17 @@ class DartMinute(Status):
             for i in range(length):
                 if min_date > self.stock_chart.GetDataValue(0, i):
                     break
-                if self.stock_chart.GetDataValue(0, i) not in pivots:
-                    continue
+                # if self.stock_chart.GetDataValue(0, i) not in pivots:
+                #     continue
                 _date = self.stock_chart.GetDataValue(0, i)
                 day_data[_date] = {
-                    "stocks": self.stock_chart.GetDataValue(1, i),
-                    "marketcap": self.stock_chart.GetDataValue(2, i),
-                    "foreign": self.stock_chart.GetDataValue(3, i),
-                    "turnover_ratio": self.stock_chart.GetDataValue(4, i),
-                    "transation_ratio": self.stock_chart.GetDataValue(5, i),
+                    "date": self.stock_chart.GetDataValue(0, i),
+                    "open": self.stock_chart.GetDataValue(1, i),
+                    "stocks": self.stock_chart.GetDataValue(2, i),
+                    "marketcap": self.stock_chart.GetDataValue(3, i),
+                    "foreign": self.stock_chart.GetDataValue(4, i),
+                    "turnover_ratio": self.stock_chart.GetDataValue(5, i),
+                    "transaction_ratio": self.stock_chart.GetDataValue(6, i),
                 }
             if self.status.getLimitRemainCount(1) < 2:
                 time.sleep(15.0)
@@ -172,38 +167,41 @@ class DartMinute(Status):
             self.log_request()
             length = self.stock_chart.GetHeaderValue(3)
 
-        self._update_report(reports, data, day_data)
+        self._update_report(reports, minute_data, day_data)
 
     def _update_report(self, reports, data, day_data):
         for report in reports:
-            _data = data.get(self._get_int_datetime(report["year"], report["month"], report["day"]), [])
+            _minute_data = data.get(self._get_int_datetime(report["year"], report["month"], report["day"]), [])
             _day_data = day_data.get(self._get_int_datetime(report["year"], report["month"], report["day"]), {})
             report_datetime = datetime.datetime(year=int(report["year"]), month=int(report["month"]),
-                                                day=int(report["day"]), hour=int(report["hout"]),
+                                                day=int(report["day"]), hour=int(report["hour"]),
                                                 minute=int(report["minute"]))
-            for d in _data:
+            for d in _minute_data:
                 d_datetime = datetime.datetime(year=int(d["date"] / 10000), month=int(d["date"] / 100) % 100,
                                                day=d["date"] % 100, hour=int(d["minute"] / 100),
                                                minute=d["minute"] % 100)
-
                 if (report_datetime <= d_datetime) and (d_datetime - report_datetime <= datetime.timedelta(minutes=7)):
                     new_data = d.copy()
-                    new_data.update(_day_data)
                     report.setdefault("prices", []).append(new_data)
+            for d in day_data:
+                d_datetime = datetime.datetime(year=int(d / 10000), month=int(d / 100) % 100, day=d % 100)
+                if (report_datetime <= d_datetime) and (d_datetime - report_datetime <= datetime.timedelta(days=14)):
+                    new_data = day_data[d].copy()
+                    report.setdefault("date_prices", []).append(new_data)
 
 
     def _report_intime(self, report):
-        if int(report["hout"]) >= 16:
-            return True
-        if int(report["hout"]) >= 15 and int(report["minute"]) >= 25:
-            return True
-        elif int(report["hout"]) < 9:
-            return True
+        if int(report["hour"]) >= 16:
+            return False
+        if int(report["hour"]) >= 15 and int(report["minute"]) >= 25:
+            return False
+        elif int(report["hour"]) < 9:
+            return False
         else:
             today = datetime.datetime.now()
             report_datetime = datetime.datetime(year=int(report["year"]), month=int(report["month"]),
                                                 day=int(report["day"]))
-            if today - report_datetime > datetime.timedelta(days=365 * 2):
+            if today - report_datetime < datetime.timedelta(days=365 * 2):
                 return True
             return False
 
@@ -219,17 +217,18 @@ class DartMinute(Status):
         for report_type, reports in dart_reports.items():
             count = 0
             for report in reports:
-                if self._report_intime(report):
+                if not self._report_intime(report):
                     continue
                 stock_code = self.stockCodeCache[report["company_id"]]
                 if not stock_code:
                     continue
+                report["stockcode"] = stock_code
                 report_book.setdefault(stock_code, []).append(report)
                 count += 1
             self.logger.info("{} get {} reports".format(report_type, count))
 
-        self.add_report_info(report_book, dart_reports)
-        # self.save(dart_reports)
+        self.add_report_info(report_book)
+        self.save(dart_reports)
         self.stockCodeCache.save()
 
 
@@ -238,7 +237,6 @@ def test():
     with open(pjoin("res", "dart_report.json"), "r", newline='', encoding='utf-8') as fin:
         dart_reports = json.load(fin)
     for key, value in dart_reports.items():
-        print(key)
         count = 0
         print(key, len(value))
         for v in value:
@@ -250,5 +248,5 @@ def test():
                 break
 
 if __name__ == "__main__":
-    # fire.Fire(DartMinute)
-    test()
+    fire.Fire(DartMinute)
+    # test()
